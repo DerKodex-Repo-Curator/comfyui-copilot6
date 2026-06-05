@@ -15,7 +15,7 @@ from ..utils.key_utils import workflow_config_adapt
 from openai import OpenAI
 
 from ..agent_factory import create_agent
-from ..utils.globals import WORKFLOW_MODEL_NAME, get_comfyui_copilot_api_key, LLM_DEFAULT_BASE_URL
+from ..utils.globals import WORKFLOW_MODEL_NAME, OPENAI_BASE_URL, OPENAI_API_KEY
 from ..utils.request_context import get_config, get_rewrite_context, RewriteContext
 from ..utils.logger import log
 
@@ -87,8 +87,8 @@ ComfyUI API格式工作流是一个JSON对象，其中：
 
         # 创建OpenAI客户端
         client = OpenAI(
-            base_url = config.get("openai_base_url") or LLM_DEFAULT_BASE_URL,
-            api_key = config.get("openai_api_key") or get_comfyui_copilot_api_key() or ""
+            base_url=config.get("openai_base_url") or config.get("workflow_llm_base_url") or OPENAI_BASE_URL or "https://api.openai.com/v1",
+            api_key=config.get("openai_api_key") or config.get("workflow_llm_api_key") or OPENAI_API_KEY or ""
         )
 
         # 调用LLM
