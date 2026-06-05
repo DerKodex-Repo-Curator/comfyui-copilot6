@@ -4,6 +4,17 @@
 
 ComfyUI-Copilot is a **ComfyUI custom node plugin**. All agent logic runs locally inside ComfyUI; **no developer-hosted API key or Render.com backend is required**.
 
+### Built-in MCP server
+
+ComfyUI Copilot starts a **local FastMCP server** (SSE) in a background thread when ComfyUI loads the plugin (non-blocking):
+
+- Default URL: `http://127.0.0.1:8189/mcp` (ComfyUI port + 1, SSE path `/mcp`)
+- Override port: `COPILOT_MCP_PORT=8199`
+- Health: `GET /api/mcp/status` (waits briefly for the server to bind)
+- Tools: `gen_workflow`, `recall_workflow`, `search_node`, `get_node_infos`, `get_current_workflow`, `list_available_models`, `list_installed_node_types`
+
+The chat agent connects via `MCPServerSse` to this local server (no external Render.com backend). If MCP tools fail with 404, restart ComfyUI so the background server picks up the latest plugin code.
+
 ### Self-hosted mode (default)
 
 - Configure **Chat LLM** and optional **Workflow LLM** in Copilot Settings (gear icon).

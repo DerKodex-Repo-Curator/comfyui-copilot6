@@ -11,6 +11,7 @@ Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查�
 
 import sys
 import asyncio
+import os
 
 
 # Ensure 'agents' resolves to openai-agents (not legacy RL package)
@@ -48,6 +49,15 @@ from .backend.controller.conversation_api import *
 from .backend.controller.llm_api import *
 from .backend.controller.expert_api import *
 from .backend.controller.workflow_api import *
+from .backend.controller.mcp_status_api import *
+
+try:
+    from .backend.service.mcp_server_runner import ensure_mcp_server_running
+    _ps = server.PromptServer.instance
+    _comfy_port = getattr(_ps, "port", None) or 8188
+    ensure_mcp_server_running(comfyui_port=_comfy_port, wait_seconds=0)
+except Exception as _mcp_exc:
+    print(f"ComfyUI Copilot: MCP server will start on first chat request ({_mcp_exc})")
 
 WEB_DIRECTORY = "entry"
 NODE_CLASS_MAPPINGS = {}
