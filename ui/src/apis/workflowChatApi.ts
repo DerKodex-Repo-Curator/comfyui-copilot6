@@ -18,14 +18,7 @@ import { app } from '../utils/comfyapp';
 
 const BASE_URL = config.apiBaseUrl
 
-const getApiKey = () => {
-    const apiKey = localStorage.getItem('chatApiKey');
-    if (!apiKey) {
-        // alert('API key is required. Please set your API key first.');
-        // throw new Error('API key is required. Please set your API key first.');
-    }
-    return apiKey;
-};
+const getApiKey = () => localStorage.getItem('chatApiKey') || '';
 
 const setApiKey = (apiKey: string) => {
     localStorage.setItem('chatApiKey', apiKey);
@@ -67,33 +60,8 @@ const checkAndSaveApiKey = (response: Response) => {
 
 export namespace WorkflowChatAPI {
   export async function trackEvent(
-    request: TrackEventRequest
+    _request: TrackEventRequest
   ): Promise<void> {
-    try {
-      // Use non-blocking fetch to avoid interrupting the main flow
-      const apiKey = getApiKey();
-      const browserLanguage = getBrowserLanguage();
-      request.session_id = localStorage.getItem("sessionId") || null;
-      fetch(`${BASE_URL}/api/chat/track_event`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'accept': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          'Authorization': `Bearer ${apiKey}`,
-          'trace-id': generateUUID(),
-          'Accept-Language': browserLanguage,
-        },
-        body: JSON.stringify(request),
-      }).catch(err => {
-        // Silently log errors without throwing exceptions
-        console.warn('Track event failed:', err);
-      });
-    } catch (error) {
-      // Catch any synchronous errors but don't interrupt the business flow
-      console.warn('Error preparing track event:', error);
-    }
-    // Return immediately without waiting for the response
     return Promise.resolve();
   }
   
@@ -250,19 +218,16 @@ export namespace WorkflowChatAPI {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
         'accept': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Authorization': `Bearer ${apiKey}`,
         'trace-id': trace_id || generateUUID(),
         'Accept-Language': browserLanguage,
       };
       
-      // Add OpenAI configuration headers if available
-      if (openaiApiKey && openaiApiKey.trim() !== '' && rsaPublicKey) {
-        try {
-          headers['Openai-Base-Url'] = openaiBaseUrl;
-        } catch (error) {
-          console.error('Error encrypting OpenAI API key:', error);
-        }
+      // Add OpenAI configuration headers
+      if (openaiApiKey && openaiApiKey.trim() !== '') {
+        headers['Openai-Api-Key'] = openaiApiKey;
+      }
+      if (openaiBaseUrl && openaiBaseUrl.trim() !== '') {
+        headers['Openai-Base-Url'] = openaiBaseUrl;
       }
       // Add Workflow LLM headers if available
       if (workflowLLMBaseUrl) {
@@ -287,12 +252,8 @@ export namespace WorkflowChatAPI {
         });
       }
 
-      let chatUrl = `/api/chat/invoke`
-      if(intent && intent !== '') {
-        chatUrl = `${BASE_URL}/api/chat/invoke`
-      } else {
-        headers['Openai-Api-Key'] = openaiApiKey;
-      }
+      const chatUrl = `/api/chat/invoke`
+      headers['Openai-Api-Key'] = openaiApiKey;
       const response = await fetch(chatUrl, {
         method: 'POST',
         headers: headers,
@@ -364,49 +325,27 @@ export namespace WorkflowChatAPI {
     prompt: string
   ): Promise<OptimizedWorkflowResponse> {
     try {
-      const apiKey = getApiKey();
       const browserLanguage = getBrowserLanguage();
-      const { openaiApiKey, openaiBaseUrl, rsaPublicKey, workflowLLMApiKey, workflowLLMBaseUrl } = getOpenAiConfig();
-      
-      // Prepare headers
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        'accept': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Authorization': `Bearer ${apiKey}`,
-        'trace-id': generateUUID(),
-        'Accept-Language': browserLanguage,
-      };
-      
-      // Add OpenAI configuration headers if available
-      if (openaiApiKey && openaiApiKey.trim() !== '' && rsaPublicKey) {
-        try {
-          const encryptedApiKey = await encryptWithRsaPublicKey(openaiApiKey as string, rsaPublicKey as string);
-          headers['Encrypted-Openai-Api-Key'] = encryptedApiKey;
-          headers['Openai-Base-Url'] = openaiBaseUrl;
-        } catch (error) {
-          console.error('Error encrypting OpenAI API key:', error);
-        }
-      }
-      // Add Workflow LLM headers if available
-      if (workflowLLMBaseUrl) {
-        headers['Workflow-LLM-Base-Url'] = workflowLLMBaseUrl;
-      }
-      if (workflowLLMApiKey) {
-        headers['Workflow-LLM-Api-Key'] = workflowLLMApiKey;
-      }
-      
-      const response = await fetch(`${BASE_URL}/api/chat/get_optimized_workflow`, {
+      const { openaiApiKey, openaiBaseUrl, workflowLLMApiKey, workflowLLMBaseUrl } = getOpenAiConfig();
+
+      const response = await fetch(`/api/chat/get_optimized_workflow`, {
         method: 'POST',
-        headers,
+        headers: {
+          'Content-Type': 'application/json',
+          'accept': 'application/json',
+          'trace-id': generateUUID(),
+          'Accept-Language': browserLanguage,
+          'Openai-Api-Key': openaiApiKey,
+          'Openai-Base-Url': openaiBaseUrl,
+          'Workflow-LLM-Api-Key': workflowLLMApiKey,
+          'Workflow-LLM-Base-Url': workflowLLMBaseUrl,
+        },
         body: JSON.stringify({
           workflow_id: workflowId,
           prompt: prompt
         } as OptimizedWorkflowRequest),
       });
-      
-      checkAndSaveApiKey(response);
-      
+
       const result = await response.json();
       if (!result.success) {
         const message = result.message || 'Failed to get optimized workflow';
@@ -423,46 +362,25 @@ export namespace WorkflowChatAPI {
   }
 
   export async function batchGetNodeInfo(nodeTypes: string[]): Promise<any> {
-    const apiKey = getApiKey();
     const browserLanguage = getBrowserLanguage();
-    const { openaiApiKey, openaiBaseUrl, rsaPublicKey, workflowLLMApiKey, workflowLLMBaseUrl } = getOpenAiConfig();
-    
-    // Prepare headers
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-      'trace-id': generateUUID(),
-      'Accept-Language': browserLanguage,
-    };
-    
-    // Add OpenAI configuration headers if available
-    if (openaiApiKey && openaiApiKey.trim() !== '' && rsaPublicKey) {
-      try {
-        const encryptedApiKey = await encryptWithRsaPublicKey(openaiApiKey as string, rsaPublicKey as string);
-        headers['Encrypted-Openai-Api-Key'] = encryptedApiKey;
-        headers['Openai-Base-Url'] = openaiBaseUrl;
-      } catch (error) {
-        console.error('Error encrypting OpenAI API key:', error);
-      }
-    }
-    // Add Workflow LLM headers if available
-    if (workflowLLMBaseUrl) {
-      headers['Workflow-LLM-Base-Url'] = workflowLLMBaseUrl;
-    }
-    if (workflowLLMApiKey) {
-      headers['Workflow-LLM-Api-Key'] = workflowLLMApiKey;
-    }
-    
-    const response = await fetch(`${BASE_URL}/api/chat/get_node_info_by_types`, {
+    const { openaiApiKey, openaiBaseUrl, workflowLLMApiKey, workflowLLMBaseUrl } = getOpenAiConfig();
+
+    const response = await fetch(`/api/chat/get_node_info_by_types`, {
       method: 'POST',
-      headers,
+      headers: {
+        'Content-Type': 'application/json',
+        'trace-id': generateUUID(),
+        'Accept-Language': browserLanguage,
+        'Openai-Api-Key': openaiApiKey,
+        'Openai-Base-Url': openaiBaseUrl,
+        'Workflow-LLM-Api-Key': workflowLLMApiKey,
+        'Workflow-LLM-Base-Url': workflowLLMBaseUrl,
+      },
       body: JSON.stringify({ 
         node_types: nodeTypes
       }),
     });
-    
-    checkAndSaveApiKey(response);
-    
+
     const result = await response.json();
     if (!result.success) {
       const message = result.message || 'Failed to get node info by types';
@@ -489,37 +407,7 @@ export namespace WorkflowChatAPI {
   }
 
   export async function fetchAnnouncement(): Promise<string> {
-    try {
-      const apiKey = getApiKey();
-      const browserLanguage = getBrowserLanguage();
-      
-      // Prepare headers
-      const headers: Record<string, string> = {
-        'accept': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-        'trace-id': generateUUID(),
-        'Accept-Language': browserLanguage,
-      };
-      
-      const response = await fetch(`${BASE_URL}/api/chat/announcement`, {
-        method: 'GET',
-        headers,
-      });
-      
-      checkAndSaveApiKey(response);
-      
-      const result = await response.json();
-      if (!result.success) {
-        const message = result.message || 'Failed to fetch announcement';
-        console.error(message);
-        return '';
-      }
-
-      return result.data as string;
-    } catch (error) {
-      console.error('Error fetching announcement:', error);
-      return '';
-    }
+    return '';
   }
 
   export async function generateSDPrompts(text: string): Promise<string[]> {
@@ -541,9 +429,16 @@ export namespace WorkflowChatAPI {
           'Accept-Language': browserLanguage,
         };
         
-        const response = await fetch(`${BASE_URL}/api/param_debug/generate_sd_prompts`, {
+        const response = await fetch(`/api/param_debug/generate_sd_prompts`, {
           method: 'POST',
-          headers,
+          headers: {
+            'Content-Type': 'application/json',
+            'accept': 'application/json',
+            'trace-id': generateUUID(),
+            'Accept-Language': browserLanguage,
+            'Openai-Api-Key': localStorage.getItem('openaiApiKey') || '',
+            'Openai-Base-Url': localStorage.getItem('openaiBaseUrl') || '',
+          },
           body: JSON.stringify({
             text: text
           }),
@@ -674,8 +569,6 @@ export namespace WorkflowChatAPI {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
         'accept': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Authorization': `Bearer ${apiKey}`,
         'trace-id': generateUUID(),
         'Accept-Language': browserLanguage,
       };

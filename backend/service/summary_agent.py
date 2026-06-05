@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from openai import OpenAI
 
 from ..utils.key_utils import workflow_config_adapt
-from ..utils.globals import WORKFLOW_MODEL_NAME, get_comfyui_copilot_api_key, LLM_DEFAULT_BASE_URL
+from ..utils.globals import WORKFLOW_MODEL_NAME, OPENAI_BASE_URL, OPENAI_API_KEY, LLM_DEFAULT_BASE_URL
 from ..utils.request_context import get_config
 from ..utils.logger import log
 
@@ -90,8 +90,8 @@ Keep summaries factual, objective, and efficient."""
 
         # 创建OpenAI客户端
         client = OpenAI(
-            base_url=config.get("openai_base_url") or LLM_DEFAULT_BASE_URL,
-            api_key=config.get("openai_api_key") or get_comfyui_copilot_api_key() or ""
+            base_url=config.get("openai_base_url") or OPENAI_BASE_URL or LLM_DEFAULT_BASE_URL,
+            api_key=config.get("openai_api_key") or OPENAI_API_KEY or ""
         )
 
         # 确定使用的模型，如果没有指定则使用默认模型
