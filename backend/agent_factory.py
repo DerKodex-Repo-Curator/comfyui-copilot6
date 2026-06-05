@@ -22,7 +22,7 @@ except Exception:
         "Alternatively, keep both by setting COMFYUI_COPILOT_PREFER_OPENAI_AGENTS=1 so this plugin prefers openai-agents."
     )
 from dotenv import dotenv_values
-from .utils.globals import LLM_DEFAULT_BASE_URL, LMSTUDIO_DEFAULT_BASE_URL, get_comfyui_copilot_api_key, is_lmstudio_url
+from .utils.globals import LLM_DEFAULT_BASE_URL, LMSTUDIO_DEFAULT_BASE_URL, OPENAI_API_KEY, is_lmstudio_url
 from openai import AsyncOpenAI
 
 
@@ -59,15 +59,10 @@ def create_agent(**kwargs) -> Agent:
     if session_id:
         default_headers["X-Session-ID"] = session_id
 
-    # Determine base URL and API key
-    base_url = LLM_DEFAULT_BASE_URL
-    api_key = get_comfyui_copilot_api_key() or ""
-
-    if config:
-        if config.get("openai_base_url") and config.get("openai_base_url") != "":
-            base_url = config.get("openai_base_url")
-        if config.get("openai_api_key") and config.get("openai_api_key") != "":
-            api_key = config.get("openai_api_key")
+    # Determine base URL and API key from user config / environment only
+    base_url = config.get("openai_base_url") if config else None
+    base_url = base_url or LLM_DEFAULT_BASE_URL
+    api_key = (config.get("openai_api_key") if config else None) or OPENAI_API_KEY or ""
 
     # Check if this is LMStudio and adjust API key handling
     is_lmstudio = is_lmstudio_url(base_url)
@@ -87,7 +82,7 @@ def create_agent(**kwargs) -> Agent:
     model_from_config = (config or {}).get("model_select")
     model_from_kwargs = kwargs.pop("model", None)
 
-    model_name = model_from_config or model_from_kwargs or "gemini-2.5-flash"
+    model_name = model_from_config or model_from_kwargs or "gpt-4o"
     model = OpenAIChatCompletionsModel(model_name, openai_client=client)
 
     # Safety: ensure no stray 'model' remains in kwargs to avoid duplicate kwarg errors
