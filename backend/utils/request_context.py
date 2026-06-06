@@ -18,6 +18,7 @@ class RewriteContext(BaseModel):
 _session_id: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar('session_id', default=None)
 _workflow_checkpoint_id: contextvars.ContextVar[Optional[int]] = contextvars.ContextVar('workflow_checkpoint_id', default=None)
 _config: contextvars.ContextVar[Optional[Dict[str, Any]]] = contextvars.ContextVar('config', default=None)
+_session_config_cache: Dict[str, Dict[str, Any]] = {}
 _rewrite_context: contextvars.ContextVar[Optional[RewriteContext]] = contextvars.ContextVar('rewrite_context', default=None)
 
 
@@ -52,6 +53,15 @@ def set_request_context(session_id: str, workflow_checkpoint_id: Optional[int] =
         set_workflow_checkpoint_id(workflow_checkpoint_id)
     if config is not None:
         set_config(config)
+        _session_config_cache[session_id] = dict(config)
+
+
+def restore_request_context_from_session(session_id: str) -> None:
+    """Restore chat config for MCP tool calls that arrive on a separate HTTP request."""
+    set_session_id(session_id)
+    cached = _session_config_cache.get(session_id)
+    if cached is not None:
+        set_config(cached)
 
 def clear_request_context() -> None:
     """Clear all request context variables"""
